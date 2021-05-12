@@ -1,0 +1,84 @@
+name: git-push-action
+description: GitHub Action to push artifacts created during workflow to repo
+
+author: Simon Dickhoven <sdickhoven@everquote.com>
+
+inputs:
+  commit-user:
+    description: Commit user
+    required: false
+    default: actions-user
+  commit-email:
+    description: Commit email
+    required: false
+    default: actions@github.com
+  commit-author:
+    description: Commit author
+    required: false
+    default: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+  commit-message:
+    description: Commit message
+    required: false
+    default: https://xkcd.com/1296/
+  file-pattern:
+    description: File pattern to commit
+    required: false
+    default: .
+  branch:
+    description: Target branch to push to
+    required: false
+    default: ${{ github.head_ref }}
+
+outputs:
+  change-detected:
+    description: Change detected
+    value: ${{ steps.push.outputs.change-detected }}
+
+runs:
+  using: composite
+  steps:
+  - id: push
+    shell: bash
+    env:
+      COMMIT_USER: ${{ inputs.commit-user }}
+      COMMIT_EMAIL: ${{ inputs.commit-email }}
+      COMMIT_AUTHOR: ${{ inputs.commit-author }}
+      COMMIT_MESSAGE: ${{ inputs.commit-message }}
+      FILE_PATTERN: ${{ inputs.file-pattern }}
+      BRANCH: ${{ inputs.branch }}
+    run: |
+      set -e
+
+      git_status=$(git status --porcelain "$FILE_PATTERN")
+      if [ -z "$git_status" ]
+      then
+        echo "::debug::No change detected."
+        echo "::set-output name=change-detected::false"
+      else
+        echo "::set-output name=change-detected::true"
+        if [ -z "$BRANCH" ]
+        then
+          echo "::debug::Working on current branch."
+        else
+          echo "::debug::Switching to branch: '$BRANCH'."
+          git fetch --depth=1
+          git checkout "$BRANCH"
+        fi
+        echo "::debug::Add files: '$FILE_PATTERN'."
+        git add "$FILE_PATTERN"
+        echo "::debug::Commit changes."
+        git --config-env=user.name=COMMIT_USER \
+            --config-env=user.email=COMMIT_EMAIL \
+            commit \
+            --author="$COMMIT_AUTHOR" \
+            --message="$COMMIT_MESSAGE"
+        if [ -z "$BRANCH" ]
+        then
+          echo "::debug::Push to current branch."
+          git push origin
+        else
+          echo "::debug::Push to branch: '$BRANCH'."
+          git push --set-upstream origin "HEAD:$BRANCH"
+        fi
+      fi
+
