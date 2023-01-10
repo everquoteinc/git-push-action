@@ -53,9 +53,9 @@ runs:
       if [ -z "$git_status" ]
       then
         echo "::debug::No change detected."
-        echo "::set-output name=change-detected::false"
+        echo "change-detected=false" >> "$GITHUB_OUTPUT"
       else
-        echo "::set-output name=change-detected::true"
+        echo "change-detected=true" >> "$GITHUB_OUTPUT"
         if [ -z "$BRANCH" ]
         then
           echo "::debug::Working on current branch."
