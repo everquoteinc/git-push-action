@@ -33,6 +33,9 @@ outputs:
   change-detected:
     description: Change detected
     value: ${{ steps.push.outputs.change-detected }}
+  changed-files:
+    description: Changed files
+    value: ${{ steps.push.outputs.changed-files }}
 
 runs:
   using: composite
@@ -49,12 +52,14 @@ runs:
     run: |
       set -e
 
-      git_status=$(git status --porcelain "$FILE_PATTERN")
+      git_status=$(git status --no-renames --ignored=no --porcelain=v1 "$FILE_PATTERN")
       if [ -z "$git_status" ]
       then
         echo "::debug::No change detected."
         echo "change-detected=false" >> "$GITHUB_OUTPUT"
+        echo "changed-files=[]" >> "$GITHUB_OUTPUT"
       else
+        echo "::debug::Change detected."
         echo "change-detected=true" >> "$GITHUB_OUTPUT"
         if [ -z "$BRANCH" ]
         then
@@ -66,6 +71,24 @@ runs:
         fi
         echo "::debug::Add files: '$FILE_PATTERN'."
         git add "$FILE_PATTERN"
+        changed_files=$(
+          git status -z --no-renames --ignored=no --porcelain=v2 "$FILE_PATTERN" | \
+          jq -Rsrc '
+            split("\u0000") | [
+              .[] | split(" ") | {
+                "status":      .[1][0:1],
+                "head": {
+                  "mode":      .[3],
+                  "object_id": .[6],
+                },
+                "mode":        .[4],
+                "object_id":   .[7],
+                "path":        .[8:] | join(" ")
+              }
+            ]
+          '
+        )
+        echo "changed-files=$changed_files" >> "$GITHUB_OUTPUT"
         echo "::debug::Commit changes."
         git --config-env=user.name=COMMIT_USER \
             --config-env=user.email=COMMIT_EMAIL \
