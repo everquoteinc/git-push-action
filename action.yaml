@@ -4,18 +4,22 @@ description: GitHub Action to push artifacts created during workflow to repo
 author: Simon Dickhoven <sdickhoven@everquote.com>
 
 inputs:
-  commit-user:
-    description: Commit user
+  committer-name:
+    description: Committer name
     required: false
     default: actions-user
-  commit-email:
-    description: Commit email
+  committer-email:
+    description: Committer email
     required: false
     default: actions@github.com
-  commit-author:
-    description: Commit author
+  author-name:
+    description: Author name
     required: false
-    default: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+    default: ${{ github.actor }}
+  author-email:
+    description: Author email
+    required: false
+    default: ${{ github.actor }}@users.noreply.github.com
   commit-message:
     description: Commit message
     required: false
@@ -43,9 +47,10 @@ runs:
   - id: push
     shell: bash
     env:
-      COMMIT_USER: ${{ inputs.commit-user }}
-      COMMIT_EMAIL: ${{ inputs.commit-email }}
-      COMMIT_AUTHOR: ${{ inputs.commit-author }}
+      GIT_COMMITTER_NAME: ${{ inputs.committer-name }}
+      GIT_COMMITTER_EMAIL: ${{ inputs.committer-email }}
+      GIT_AUTHOR_NAME: ${{ inputs.author-name }}
+      GIT_AUTHOR_EMAIL: ${{ inputs.author-email }}
       COMMIT_MESSAGE: ${{ inputs.commit-message }}
       FILE_PATTERN: ${{ inputs.file-pattern }}
       BRANCH: ${{ inputs.branch }}
@@ -90,11 +95,7 @@ runs:
         )
         echo "changed-files=$changed_files" >> "$GITHUB_OUTPUT"
         echo "::debug::Commit changes."
-        git --config-env=user.name=COMMIT_USER \
-            --config-env=user.email=COMMIT_EMAIL \
-            commit \
-            --author="$COMMIT_AUTHOR" \
-            --message="$COMMIT_MESSAGE"
+        git commit --message="$COMMIT_MESSAGE"
         if [ -z "$BRANCH" ]
         then
           echo "::debug::Push to current branch."
